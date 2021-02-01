@@ -1,0 +1,6 @@
+github.com/zephyr-im/hesiod-go v0.0.0-20180420044332-8af8fe53336a h1:a+ZwNUEPx+5XYfhEm6ahTEG4dyoM0naxkf2YrP3l9L0=
+github.com/zephyr-im/hesiod-go v0.0.0-20180420044332-8af8fe53336a/go.mod h1:33bNhznYc5knJr7kt44cNRpjO0rA4OvdB3K4pywChOE=
+github.com/zephyr-im/krb5-go v0.0.0-20180420044318-760eaf8d0a04 h1:9wrVaRN3DJrZS+fm6O8PToBqp4ysZQkEw2AHY1N0EKk=
+github.com/zephyr-im/krb5-go v0.0.0-20180420044318-760eaf8d0a04/go.mod h1:qtP3bRXOKzN3sQ42KauRVKivRj3mSvRcDYobuyLgJxo=
+github.com/zephyr-im/zephyr-go v0.0.0-20180416034431-932a267a41af h1:BwO0RPMNsMKISEM3I1gUL7uYrOUiAGcQhzop2Uoqhf8=
+github.com/zephyr-im/zephyr-go v0.0.0-20180416034431-932a267a41af/go.mod h1:+5bl+eV0VlIK9LmlB64c2/SgB33t1CflYqRjO0+zaJg=
