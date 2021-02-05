@@ -2,5 +2,7 @@
 mappings:
 - channel: scripts
   class: scripts
+- channel: xvm
+  class: xvm
 - channel: test
   class: mattermost-test
