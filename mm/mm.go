@@ -12,9 +12,8 @@ import (
 type Bot struct {
 	client          *model.Client4
 	webSocketClient *model.WebSocketClient
-
-	team    *model.Team
-	channel *model.Channel
+	team            *model.Team
+	channels        map[string]*model.Channel
 }
 
 func New(token string) (*Bot, error) {
@@ -34,22 +33,38 @@ func New(token string) (*Bot, error) {
 		return nil, fmt.Errorf("got %d teams, expected 1", len(teams))
 	}
 
-	channel, resp := client.GetChannelByName("Test", teams[0].Id, "")
-	if resp.Error != nil {
-		return nil, resp.Error
+	b := &Bot{
+		client:   client,
+		team:     teams[0],
+		channels: make(map[string]*model.Channel),
 	}
 
-	return &Bot{
-		client:  client,
-		team:    teams[0],
-		channel: channel,
-	}, nil
+	etag := ""
+	for page := 0; true; page++ {
+		channels, resp := client.GetPublicChannelsForTeam(teams[0].Id, page, 60, etag)
+		if resp.Error != nil {
+			return nil, resp.Error
+		}
+		etag = resp.Etag
+		for _, ch := range channels {
+			b.channels[ch.Name] = ch
+		}
+		if len(channels) < 60 {
+			break
+		}
+	}
+
+	return b, nil
 }
 
-func (bot *Bot) SendMessageToChannel(username string) error {
+func (bot *Bot) SendMessageToChannel(channel_name string, message, username string) error {
+	ch, ok := bot.channels[channel_name]
+	if !ok {
+		return fmt.Errorf("unknown channel %q", channel_name)
+	}
 	post := &model.Post{
-		ChannelId: bot.channel.Id,
-		Message:   "Hello",
+		ChannelId: ch.Id,
+		Message:   message,
 	}
 	post.AddProp("override_username", username)
 	post.AddProp("from_webhook", "true")
@@ -60,7 +75,7 @@ func (bot *Bot) SendMessageToChannel(username string) error {
 	return nil
 }
 
-func (bot *Bot) SendSpoofedMessageToChannel() error {
+func (bot *Bot) SendSpoofedMessageToChannel(name string) error {
 	var webhook *model.IncomingWebhook
 	webhooks, resp := bot.client.GetIncomingWebhooks(0, 100, "")
 	if resp.Error != nil {
@@ -73,7 +88,7 @@ func (bot *Bot) SendSpoofedMessageToChannel() error {
 	}
 	if webhook == nil {
 		webhook, resp = bot.client.CreateIncomingWebhook(&model.IncomingWebhook{
-			ChannelId:   bot.channel.Id,
+			ChannelId:   bot.channels[name].Id,
 			DisplayName: "zephyr",
 			Description: "Zephyr bridge",
 		})
