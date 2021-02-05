@@ -53,7 +53,7 @@ func (c *Client) handleMessage(msg *zephyr.Message) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, l := range c.listeners {
-		if l.class == msg.Class && (l.instance == "" || l.instance == msg.Instance) {
+		if l.class == msg.Class && (l.instance == "*" || l.instance == msg.Instance) {
 			l.ch <- msg
 			return
 		}
@@ -62,7 +62,7 @@ func (c *Client) handleMessage(msg *zephyr.Message) {
 }
 
 func (c *Client) SubscribeAndListen(class, instance string) (<-chan *zephyr.Message, error) {
-	if ack, err := c.session.SendSubscribe(c.kCtx, []zephyr.Subscription{{Class: class, Instance: instance}}); err != nil {
+	if ack, err := c.session.SendSubscribeNoDefaults(c.kCtx, []zephyr.Subscription{{Class: class, Instance: instance}}); err != nil {
 		return nil, err
 	} else {
 		log.Printf("Subscribed to (%q, %q): %#v", class, instance, ack)

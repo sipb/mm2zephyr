@@ -1,0 +1,6 @@
+# First matching mapping is used
+mappings:
+- channel: scripts
+  class: scripts
+- channel: test
+  class: mattermost-test

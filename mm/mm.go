@@ -47,6 +47,7 @@ func New(token string) (*Bot, error) {
 		}
 		etag = resp.Etag
 		for _, ch := range channels {
+			log.Printf("found channel: %#v", ch)
 			b.channels[ch.Name] = ch
 		}
 		if len(channels) < 60 {
