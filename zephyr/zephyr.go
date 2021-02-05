@@ -42,7 +42,6 @@ func NewClient() (*Client, error) {
 
 func (c *Client) listen() {
 	for result := range c.session.Messages() {
-		log.Printf("received message: %#v", result)
 		// TODO: Do something with result.AuthStatus?
 		msg := result.Message
 		c.handleMessage(msg)

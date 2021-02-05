@@ -2,12 +2,14 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 
 	"github.com/sipb/mm2zephyr/mm"
 	"github.com/sipb/mm2zephyr/zephyr"
+	z "github.com/zephyr-im/zephyr-go"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v2"
 )
@@ -49,6 +51,8 @@ func main() {
 	}
 	var eg errgroup.Group
 	for _, mapping := range config.Mappings {
+		// Make a local copy for the closure
+		mapping := mapping
 		instance := mapping.Instance
 		if instance == "" {
 			instance = "*"
@@ -59,9 +63,14 @@ func main() {
 		}
 		eg.Go(func() error {
 			for message := range ch {
-				log.Printf("received message %#v", message)
+				logMessage(message)
 				username := message.Header.Sender
 				messageText := message.Body[1]
+
+				if instance == "*" && message.Instance != "personal" {
+					messageText = fmt.Sprintf("[-i %s] %s", message.Instance, messageText)
+				}
+
 				err = bot.SendMessageToChannel(mapping.Channel, messageText, username)
 				if err != nil {
 					return err
@@ -73,4 +82,14 @@ func main() {
 	if err := eg.Wait(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func logMessage(message *z.Message) {
+	body := message.Body[0]
+	zsig := message.Header.Sender
+	if len(message.Body) > 1 {
+		body = message.Body[1]
+		zsig = message.Body[0]
+	}
+	log.Printf("[-c %s -i %s] %s <%s>: %s", message.Class, message.Instance, zsig, message.Header.Sender, body)
 }
