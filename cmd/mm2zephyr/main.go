@@ -2,8 +2,10 @@ package main
 
 import (
 	"log"
+	"os"
 	"time"
 
+	"github.com/sipb/mm2zephyr/mm"
 	"github.com/zephyr-im/krb5-go"
 	"github.com/zephyr-im/zephyr-go"
 )
@@ -30,7 +32,7 @@ func main() {
 			Kind:  zephyr.ACKED,
 			UID:   session.MakeUID(time.Now()),
 			Port:  session.Port(),
-			Class: "message", Instance: "personal", OpCode: "test",
+			Class: "message", Instance: "personal", OpCode: "",
 			Sender:        session.Sender(),
 			Recipient:     "mrittenb@ATHENA.MIT.EDU",
 			DefaultFormat: "http://mit.edu/df/",
@@ -38,10 +40,19 @@ func main() {
 			Charset:       zephyr.CharsetUTF8,
 			OtherFields:   nil,
 		},
-		Body: []string{"mattermost.xvm.mit.edu", "Hello world"},
+		Body: []string{"mattermost.xvm.mit.edu", "Hello world!!!!"},
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
 	log.Printf("ack: %v", ack)
+
+	bot, err := mm.New(os.Getenv("MM_AUTH_TOKEN"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = bot.SendMessageToChannel("quentin")
+	if err != nil {
+		log.Fatal(err)
+	}
 }
