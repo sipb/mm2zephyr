@@ -7,18 +7,28 @@ import (
 	"io/ioutil"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mattermost/mattermost-server/v5/model"
 	"golang.org/x/sync/errgroup"
 )
 
+type listener struct {
+	channelID string
+	ch        chan<- PostNotification
+}
+
 type Bot struct {
 	//webSocketClient *model.WebSocketClient
 	client   *model.Client4
+	user     *model.User
 	team     *model.Team
 	channels map[string]*model.Channel
 	close    func()
+
+	mu        sync.Mutex
+	listeners []listener
 }
 
 const url = "https://mattermost.mit.edu"
@@ -32,6 +42,10 @@ func New(token string) (*Bot, error) {
 		log.Print("Server detected and is running version " + props["Version"])
 	}
 	client.SetOAuthToken(token)
+	user, resp := client.GetMe("")
+	if resp.Error != nil {
+		return nil, resp.Error
+	}
 	teams, resp := client.GetAllTeams("", 0, 2)
 	if resp.Error != nil {
 		return nil, resp.Error
@@ -42,6 +56,7 @@ func New(token string) (*Bot, error) {
 
 	b := &Bot{
 		client:   client,
+		user:     user,
 		team:     teams[0],
 		channels: make(map[string]*model.Channel),
 	}
@@ -107,8 +122,12 @@ func (bot *Bot) listen(ctx context.Context, token string) error {
 		for ev := range wsClient.EventChannel {
 			switch ev.Event {
 			case model.WEBSOCKET_EVENT_POSTED:
-				post := model.PostFromJson(strings.NewReader(ev.Data["post"].(string)))
-				log.Printf("received mattermost post: %#v", post)
+				post := model.PostFromJson(strings.NewReader(ev.GetData()["post"].(string)))
+				sender := ev.GetData()["sender_name"].(string)
+				bot.handlePost(PostNotification{
+					Post:   post,
+					Sender: sender,
+				})
 			default:
 				log.Printf("received mattermost event: %#v", ev)
 			}
@@ -126,14 +145,51 @@ func (bot *Bot) listen(ctx context.Context, token string) error {
 	return eg.Wait()
 }
 
+func (bot *Bot) handlePost(post PostNotification) {
+	bot.mu.Lock()
+	defer bot.mu.Unlock()
+	for _, l := range bot.listeners {
+		if l.channelID == post.Post.ChannelId {
+			l.ch <- post
+			return
+		}
+	}
+	log.Printf("unhandled post from %q: %#v", post.Sender, post.Post)
+}
+
 func (bot *Bot) Close() {
 	bot.close()
 }
 
-func (bot *Bot) ListenChannel(channel_name string) (<-chan *model.Post, error) {
+type PostNotification struct {
+	Post   *model.Post
+	Sender string
+}
+
+func (bot *Bot) ListenChannel(channel_name string) (<-chan PostNotification, error) {
 	// Make sure the bot has joined the channel
+	ch, resp := bot.client.GetChannelByName(channel_name, bot.team.Id, "")
+	if resp.Error != nil {
+		return nil, resp.Error
+	}
+	log.Print(ch)
+	_, resp = bot.client.GetChannelMember(ch.Id, bot.user.Id, "")
+	if resp.StatusCode == 404 {
+		if _, resp := bot.client.AddChannelMember(ch.Id, bot.user.Id); resp.Error != nil {
+			return nil, resp.Error
+		}
+	} else if resp.Error != nil {
+		return nil, resp.Error
+	}
 	// Subscribe to posts
-	return nil, errors.New("unimplemented")
+	postCh := make(chan PostNotification)
+	bot.mu.Lock()
+	defer bot.mu.Unlock()
+	bot.listeners = append(bot.listeners, listener{
+		channelID: ch.Id,
+		ch:        postCh,
+	})
+	return postCh, nil
 }
 
 func (bot *Bot) SendMessageToChannel(channel_name string, message, username string) error {

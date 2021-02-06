@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/sipb/mm2zephyr/mm"
 	"github.com/sipb/mm2zephyr/zephyr"
@@ -63,6 +64,9 @@ func main() {
 		}
 		eg.Go(func() error {
 			for message := range ch {
+				if message.Header.OpCode == "mattermost" {
+					continue
+				}
 				logMessage(message)
 				username := message.Header.Sender
 				messageText := message.Body[1]
@@ -73,6 +77,28 @@ func main() {
 
 				err = bot.SendMessageToChannel(mapping.Channel, messageText, username)
 				if err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		mmch, err := bot.ListenChannel(mapping.Channel)
+		if err != nil {
+			log.Fatal(err)
+		}
+		eg.Go(func() error {
+			for post := range mmch {
+				logPost(mapping, post)
+				if _, ok := post.Post.Props["from_bot"]; ok {
+					// Drop any message from a bot (including ourselves)
+					continue
+				}
+				instance := mapping.Instance
+				// TODO: parse instance from message or its parents
+				if instance == "" {
+					instance = "personal"
+				}
+				if err := client.SendMessage(strings.TrimPrefix(post.Sender, "@"), mapping.Class, instance, post.Post.Message); err != nil {
 					return err
 				}
 			}
@@ -92,4 +118,8 @@ func logMessage(message *z.Message) {
 		zsig = message.Body[0]
 	}
 	log.Printf("[-c %s -i %s] %s <%s>: %s", message.Class, message.Instance, zsig, message.Header.Sender, body)
+}
+
+func logPost(mapping Mapping, post mm.PostNotification) {
+	log.Printf("%s: <%s> %#v", mapping.Channel, post.Sender, post.Post)
 }
