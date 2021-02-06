@@ -1,23 +1,30 @@
 package mm
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/mattermost/mattermost-server/v5/model"
+	"golang.org/x/sync/errgroup"
 )
 
 type Bot struct {
-	client          *model.Client4
-	webSocketClient *model.WebSocketClient
-	team            *model.Team
-	channels        map[string]*model.Channel
+	//webSocketClient *model.WebSocketClient
+	client   *model.Client4
+	team     *model.Team
+	channels map[string]*model.Channel
+	close    func()
 }
 
+const url = "https://mattermost.mit.edu"
+
 func New(token string) (*Bot, error) {
-	client := model.NewAPIv4Client("https://mattermost.xvm.mit.edu")
+	client := model.NewAPIv4Client(url)
 	// Check if server is running
 	if props, resp := client.GetOldClientConfig(""); resp.Error != nil {
 		return nil, resp.Error
@@ -55,7 +62,78 @@ func New(token string) (*Bot, error) {
 		}
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	go b.listenLoop(ctx, token)
+	b.close = cancel
+
 	return b, nil
+}
+
+// listenLoop repeatedly connects to the WebSocket API, reconnecting whenever the connection is closed.
+func (bot *Bot) listenLoop(ctx context.Context, token string) {
+	for {
+		if err := bot.listen(ctx, token); err != nil {
+			log.Printf("websocket connection failed: %v", err)
+			time.Sleep(time.Second)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (bot *Bot) listen(ctx context.Context, token string) error {
+	wsClient, wserr := model.NewWebSocketClient(strings.Replace(url, "https://", "wss://", 1), token)
+	if wserr != nil {
+		return wserr
+	}
+	defer wsClient.Close()
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		<-ctx.Done()
+		wsClient.Close()
+		return ctx.Err()
+	})
+	eg.Go(func() error {
+		for _ = range wsClient.PingTimeoutChannel {
+			log.Print("mattermost ping timeout")
+			// Returning an error will close the connection and trigger a reconnect.
+			return errors.New("mattermost ping timeout")
+		}
+		return nil
+	})
+	eg.Go(func() error {
+		for ev := range wsClient.EventChannel {
+			switch ev.Event {
+			case model.WEBSOCKET_EVENT_POSTED:
+				post := model.PostFromJson(strings.NewReader(ev.Data["post"].(string)))
+				log.Printf("received mattermost post: %#v", post)
+			default:
+				log.Printf("received mattermost event: %#v", ev)
+			}
+		}
+		return nil
+	})
+	eg.Go(func() error {
+		for response := range wsClient.ResponseChannel {
+			log.Printf("received mattermost response: %#v", response)
+		}
+		return nil
+	})
+	// Listen spawns a goroutine
+	wsClient.Listen()
+	return eg.Wait()
+}
+
+func (bot *Bot) Close() {
+	bot.close()
+}
+
+func (bot *Bot) ListenChannel(channel_name string) (<-chan *model.Post, error) {
+	// Make sure the bot has joined the channel
+	// Subscribe to posts
+	return nil, errors.New("unimplemented")
 }
 
 func (bot *Bot) SendMessageToChannel(channel_name string, message, username string) error {
