@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -192,7 +193,31 @@ func (bot *Bot) ListenChannel(channel_name string) (<-chan PostNotification, err
 	return postCh, nil
 }
 
-func (bot *Bot) SendMessageToChannel(channel_name string, message, username string) error {
+var InstanceRE = regexp.MustCompile(`^\[\s*-i\s+([^]]+?)\s*\]\s*`)
+
+func (bot *Bot) FindInstance(post *model.Post) (string, error) {
+	if matches := instanceRE.FindStringSubmatch(post.Message); matches != nil {
+		return matches[1], nil
+	}
+	list, resp := bot.client.GetPostThread(post.Id, "")
+	if resp.Error != nil {
+		return "", resp.Error
+	}
+	for i := len(list.Order) - 1; i >= 0; i-- {
+		post := list.Posts[list.Order[i]]
+		if instance := post.GetProp("instance"); instance != nil {
+			if instance, ok := instance.(string); ok {
+				return instance, nil
+			}
+		}
+		if matches := instanceRE.FindStringSubmatch(post.Message); matches != nil {
+			return matches[1], nil
+		}
+	}
+	return "", nil
+}
+
+func (bot *Bot) SendMessageToChannel(channel_name string, message string, props model.StringInterface) error {
 	ch, ok := bot.channels[channel_name]
 	if !ok {
 		return fmt.Errorf("unknown channel %q", channel_name)
@@ -200,8 +225,8 @@ func (bot *Bot) SendMessageToChannel(channel_name string, message, username stri
 	post := &model.Post{
 		ChannelId: ch.Id,
 		Message:   message,
+		Props:     props,
 	}
-	post.AddProp("override_username", username)
 	post.AddProp("from_webhook", "true")
 	_, resp := bot.client.CreatePost(post)
 	if resp.Error != nil {

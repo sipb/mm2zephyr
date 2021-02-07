@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/sipb/mm2zephyr/mm"
 	"github.com/sipb/mm2zephyr/zephyr"
 	z "github.com/zephyr-im/zephyr-go"
@@ -75,7 +76,10 @@ func main() {
 					messageText = fmt.Sprintf("[-i %s] %s", message.Instance, messageText)
 				}
 
-				err = bot.SendMessageToChannel(mapping.Channel, messageText, username)
+				err = bot.SendMessageToChannel(mapping.Channel, messageText, model.StringInterface{
+					"override_username": username,
+					"instance":          message.Instance,
+				})
 				if err != nil {
 					return err
 				}
@@ -93,12 +97,21 @@ func main() {
 					// Drop any message from a bot (including ourselves)
 					continue
 				}
+				message := post.Post.Message
 				instance := mapping.Instance
 				// TODO: parse instance from message or its parents
 				if instance == "" {
+					var err error
+					instance, err = bot.FindInstance(post.Post)
+					if err != nil {
+						log.Printf("error determining instance: %v", err)
+					}
+					message = mm.InstanceRE.ReplaceAllString(message, "")
+				}
+				if instance == "" {
 					instance = "personal"
 				}
-				if err := client.SendMessage(strings.TrimPrefix(post.Sender, "@"), mapping.Class, instance, post.Post.Message); err != nil {
+				if err := client.SendMessage(strings.TrimPrefix(post.Sender, "@"), mapping.Class, instance, message); err != nil {
 					return err
 				}
 			}
