@@ -6,6 +6,7 @@ import (
 	"log"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/sipb/mm2zephyr/mm"
@@ -27,10 +28,11 @@ type Mapping struct {
 type Bridge struct {
 	config   Config
 	token    string
-	lastpost map[instance]*model.Post
+	mu       sync.Mutex
+	lastpost map[lpkey]*model.Post
 }
 
-type instance struct {
+type lpkey struct {
 	class, instance string
 }
 
@@ -38,7 +40,7 @@ func New(config Config, token string) *Bridge {
 	return &Bridge{
 		config:   config,
 		token:    token,
-		lastpost: make(map[instance]*model.Post),
+		lastpost: make(map[lpkey]*model.Post),
 	}
 }
 
@@ -77,18 +79,26 @@ func (b *Bridge) Run(ctx context.Context) error {
 				logMessage(message)
 				username := message.Header.Sender
 				messageText := message.Body[1]
+				rootId := b.getRootID(message.Class, message.Instance)
 
-				if instance == "*" && message.Instance != "personal" {
+				if rootId == "" && instance == "*" && message.Instance != "personal" {
 					messageText = fmt.Sprintf("[-i %s] %s", message.Instance, messageText)
 				}
 
-				_, err = bot.SendMessageToChannel(channel, messageText, model.StringInterface{
-					"override_username": username,
-					"instance":          message.Instance,
+				post, err := bot.SendPost(&model.Post{
+					ChannelId: channel.Id,
+					Message:   messageText,
+					Props: model.StringInterface{
+						"override_username": username,
+						"instance":          message.Instance,
+					},
+					ParentId: rootId,
+					RootId:   rootId,
 				})
 				if err != nil {
 					return err
 				}
+				b.recordPost(message.Class, message.Instance, post)
 			}
 			return nil
 		})
@@ -113,6 +123,7 @@ func (b *Bridge) Run(ctx context.Context) error {
 				if instance == "" {
 					instance = "personal"
 				}
+				b.recordPost(mapping.Class, instance, post.Post)
 				if err := client.SendMessage(strings.TrimPrefix(post.Sender, "@"), mapping.Class, instance, message); err != nil {
 					return err
 				}
@@ -121,6 +132,27 @@ func (b *Bridge) Run(ctx context.Context) error {
 		})
 	}
 	return eg.Wait()
+}
+
+func (b *Bridge) recordPost(class, instance string, post *model.Post) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.lastpost[lpkey{class, instance}] = post
+}
+
+func (b *Bridge) getRootID(class, instance string) string {
+	// TODO: Store this in a stateful way?
+	// TODO: Time limit on how old the last post can be?
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	post := b.lastpost[lpkey{class, instance}]
+	if post == nil {
+		return ""
+	}
+	if post.RootId != "" {
+		return post.RootId
+	}
+	return post.Id
 }
 
 var instanceRE = regexp.MustCompile(`^\[\s*-i\s+([^]]+?)\s*\]\s*`)

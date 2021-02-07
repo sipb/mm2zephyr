@@ -201,6 +201,15 @@ func (bot *Bot) GetPostThread(postId string) (*model.PostList, error) {
 	return pl, nil
 }
 
+func (bot *Bot) SendPost(post *model.Post) (*model.Post, error) {
+	post.AddProp("from_webhook", "true")
+	post, resp := bot.client.CreatePost(post)
+	if resp.Error != nil {
+		return nil, resp.Error
+	}
+	return post, nil
+}
+
 func (bot *Bot) SendMessageToChannel(channel *model.Channel, message string, props model.StringInterface) (*model.Post, error) {
 	post := &model.Post{
 		ChannelId: channel.Id,
