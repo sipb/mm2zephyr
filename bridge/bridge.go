@@ -78,6 +78,7 @@ func (b *Bridge) Run(ctx context.Context) error {
 				}
 				logMessage(message)
 				username := message.Header.Sender
+				username = strings.TrimSuffix(username, "@ATHENA.MIT.EDU")
 				messageText := message.Body[1]
 				rootId := b.getRootID(message.Class, message.Instance)
 
@@ -124,7 +125,8 @@ func (b *Bridge) Run(ctx context.Context) error {
 					instance = "personal"
 				}
 				b.recordPost(mapping.Class, instance, post.Post)
-				if err := client.SendMessage(strings.TrimPrefix(post.Sender, "@"), mapping.Class, instance, message); err != nil {
+				sender := strings.TrimPrefix(post.Sender, "@")
+				if err := client.SendMessage(sender, mapping.Class, instance, message); err != nil {
 					return err
 				}
 			}
