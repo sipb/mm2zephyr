@@ -112,7 +112,6 @@ func (b *Bridge) Run(ctx context.Context) error {
 				}
 				message := post.Post.Message
 				instance := mapping.Instance
-				// TODO: parse instance from message or its parents
 				if instance == "" {
 					var err error
 					instance, err = b.findInstance(bot, post.Post)
@@ -126,6 +125,7 @@ func (b *Bridge) Run(ctx context.Context) error {
 				}
 				b.recordPost(mapping.Class, instance, post.Post)
 				sender := strings.TrimPrefix(post.Sender, "@")
+				// TODO: Set zsig to a pointer to the channel or post
 				if err := client.SendMessage(sender, mapping.Class, instance, message); err != nil {
 					return err
 				}
