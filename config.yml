@@ -1,5 +1,8 @@
 # First matching mapping is used
 mappings:
+- channel: memes
+  class: sipb
+  instance: memes
 - channel: scripts
   class: scripts
 - channel: xvm
