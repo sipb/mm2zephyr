@@ -1,3 +1,5 @@
+mattermost:
+  url: https://mattermost.mit.edu
 # First matching mapping is used
 mappings:
 - channel: memes

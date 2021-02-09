@@ -32,9 +32,7 @@ type Bot struct {
 	personalsCh chan<- PostNotification
 }
 
-const url = "https://mattermost.mit.edu"
-
-func New(token string) (*Bot, error) {
+func New(url, token string) (*Bot, error) {
 	client := model.NewAPIv4Client(url)
 	// Check if server is running
 	if props, resp := client.GetOldClientConfig(""); resp.Error != nil {
@@ -101,7 +99,7 @@ func (bot *Bot) listenLoop(ctx context.Context, token string) {
 }
 
 func (bot *Bot) listen(ctx context.Context, token string) error {
-	wsClient, wserr := model.NewWebSocketClient(strings.Replace(url, "https://", "wss://", 1), token)
+	wsClient, wserr := model.NewWebSocketClient(strings.Replace(bot.client.Url, "https://", "wss://", 1), token)
 	if wserr != nil {
 		return wserr
 	}
@@ -222,6 +220,10 @@ func (bot *Bot) GetPostThread(postId string) (*model.PostList, error) {
 		return pl, resp.Error
 	}
 	return pl, nil
+}
+
+func (bot *Bot) GetPostLink(post *model.Post) string {
+	return fmt.Sprintf("%s/%s/pl/%s", bot.client.Url, bot.team.Name, post.Id)
 }
 
 func (bot *Bot) SendPost(post *model.Post) (*model.Post, error) {

@@ -16,7 +16,12 @@ import (
 )
 
 type Config struct {
-	Mappings []Mapping `yaml:"mappings"`
+	Mattermost MattermostConfig `yaml:"mattermost"`
+	Mappings   []Mapping        `yaml:"mappings"`
+}
+
+type MattermostConfig struct {
+	URL string `yaml:"url"`
 }
 
 type Mapping struct {
@@ -48,7 +53,7 @@ func (b *Bridge) Run(ctx context.Context) error {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		bot, err := mm.New(b.token)
+		bot, err := mm.New(b.config.Mattermost.URL, b.token)
 		if err != nil {
 			return err
 		}
@@ -153,7 +158,8 @@ func (b *Bridge) Run(ctx context.Context) error {
 					b.recordPost(mapping.Class, instance, post.Post)
 					sender := strings.TrimPrefix(post.Sender, "@")
 					// TODO: Set zsig to a pointer to the channel or post
-					if err := client.SendMessage(sender, mapping.Class, instance, message); err != nil {
+					zsig := bot.GetPostLink(post.Post)
+					if err := client.SendMessage(sender, mapping.Class, instance, []string{zsig, message}); err != nil {
 						log.Printf("sending message: %v", err)
 						return err
 					}

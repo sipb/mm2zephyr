@@ -77,7 +77,7 @@ func (c *Client) SubscribeAndListen(class, instance string) (<-chan *zephyr.Mess
 	return ch, nil
 }
 
-func (c *Client) SendMessage(sender, class, instance, message string) error {
+func (c *Client) SendMessage(sender, class, instance string, body []string) error {
 	ack, err := c.session.SendMessageUnauth(&zephyr.Message{
 		Header: zephyr.Header{
 			Kind:  zephyr.ACKED,
@@ -92,7 +92,7 @@ func (c *Client) SendMessage(sender, class, instance, message string) error {
 			Charset:       zephyr.CharsetUTF8,
 			OtherFields:   nil,
 		},
-		Body: []string{"mattermost.mit.edu", message},
+		Body: body,
 	})
 	if err != nil {
 		return err
