@@ -27,8 +27,9 @@ type Bot struct {
 	channels map[string]*model.Channel
 	close    func()
 
-	mu        sync.Mutex
-	listeners []listener
+	mu          sync.Mutex
+	listeners   []listener
+	personalsCh chan<- PostNotification
 }
 
 const url = "https://mattermost.mit.edu"
@@ -126,8 +127,9 @@ func (bot *Bot) listen(ctx context.Context, token string) error {
 				post := model.PostFromJson(strings.NewReader(ev.GetData()["post"].(string)))
 				sender := ev.GetData()["sender_name"].(string)
 				bot.handlePost(PostNotification{
-					Post:   post,
-					Sender: sender,
+					Post:        post,
+					ChannelType: ev.GetData()["channel_type"].(string),
+					Sender:      sender,
 				})
 			default:
 				log.Printf("received mattermost event: %#v", ev)
@@ -149,6 +151,10 @@ func (bot *Bot) listen(ctx context.Context, token string) error {
 func (bot *Bot) handlePost(post PostNotification) {
 	bot.mu.Lock()
 	defer bot.mu.Unlock()
+	if post.ChannelType == model.CHANNEL_DIRECT && bot.personalsCh != nil {
+		bot.personalsCh <- post
+		return
+	}
 	for _, l := range bot.listeners {
 		if l.channelID == post.Post.ChannelId {
 			l.ch <- post
@@ -160,11 +166,28 @@ func (bot *Bot) handlePost(post PostNotification) {
 
 func (bot *Bot) Close() {
 	bot.close()
+	bot.mu.Lock()
+	defer bot.mu.Unlock()
+	for _, l := range bot.listeners {
+		close(l.ch)
+	}
+	if bot.personalsCh != nil {
+		close(bot.personalsCh)
+	}
 }
 
 type PostNotification struct {
-	Post   *model.Post
-	Sender string
+	Post        *model.Post
+	Sender      string
+	ChannelType string
+}
+
+func (bot *Bot) ListenPersonals() <-chan PostNotification {
+	ch := make(chan PostNotification)
+	bot.mu.Lock()
+	defer bot.mu.Unlock()
+	bot.personalsCh = ch
+	return ch
 }
 
 func (bot *Bot) ListenChannel(channel_name string) (*model.Channel, <-chan PostNotification, error) {

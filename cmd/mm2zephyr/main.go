@@ -8,6 +8,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/signal"
 	"time"
 
 	"github.com/sipb/mm2zephyr/bridge"
@@ -21,10 +22,19 @@ var (
 func main() {
 	flag.Parse()
 
-	ctx := context.Background()
-
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
+	// Listen for Ctrl-C
+	ctx, cancel := context.WithCancel(context.Background())
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
+	go func() {
+		<-c
+		cancel()
 	}()
 
 	data, err := ioutil.ReadFile(*configFile)
@@ -37,7 +47,8 @@ func main() {
 	}
 	token := os.Getenv("MM_AUTH_TOKEN")
 	b := bridge.New(config, token)
-	for {
+
+	for ctx.Err() == nil {
 		err := b.Run(ctx)
 		log.Printf("bridge failed: %v", err)
 		time.Sleep(time.Second)
