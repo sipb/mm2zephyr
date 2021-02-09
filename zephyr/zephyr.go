@@ -102,6 +102,7 @@ func (c *Client) SendMessage(sender, class, instance, message string) error {
 }
 
 func (c *Client) Close() {
+	c.session.SendCancelSubscriptions(c.kCtx)
 	c.kCtx.Free()
 	c.mu.Lock()
 	defer c.mu.Unlock()

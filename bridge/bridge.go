@@ -56,6 +56,16 @@ func (b *Bridge) Run(ctx context.Context) error {
 	}
 
 	eg, ctx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		<-ctx.Done()
+		bot.Close()
+		return ctx.Err()
+	})
+	eg.Go(func() error {
+		<-ctx.Done()
+		client.Close()
+		return nil
+	})
 	for _, mapping := range b.config.Mappings {
 		// Make a local copy for the closure
 		mapping := mapping
@@ -91,6 +101,8 @@ func (b *Bridge) Run(ctx context.Context) error {
 					Message:   messageText,
 					Props: model.StringInterface{
 						"override_username": username,
+						"from_zephyr":       "true",
+						"class":             message.Class,
 						"instance":          message.Instance,
 					},
 					ParentId: rootId,
@@ -127,6 +139,7 @@ func (b *Bridge) Run(ctx context.Context) error {
 				sender := strings.TrimPrefix(post.Sender, "@")
 				// TODO: Set zsig to a pointer to the channel or post
 				if err := client.SendMessage(sender, mapping.Class, instance, message); err != nil {
+					log.Printf("sending message: %v", err)
 					return err
 				}
 			}

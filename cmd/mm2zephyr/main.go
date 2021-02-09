@@ -5,6 +5,8 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"time"
 
@@ -20,6 +22,10 @@ func main() {
 	flag.Parse()
 
 	ctx := context.Background()
+
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	data, err := ioutil.ReadFile(*configFile)
 	if err != nil {
