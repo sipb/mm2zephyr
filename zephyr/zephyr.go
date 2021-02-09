@@ -78,7 +78,7 @@ func (c *Client) SubscribeAndListen(class, instance string) (<-chan *zephyr.Mess
 }
 
 func (c *Client) SendMessage(sender, class, instance, message string) error {
-	ack, err := c.session.SendMessage(c.kCtx, &zephyr.Message{
+	ack, err := c.session.SendMessageUnauth(&zephyr.Message{
 		Header: zephyr.Header{
 			Kind:  zephyr.ACKED,
 			UID:   c.session.MakeUID(time.Now()),
