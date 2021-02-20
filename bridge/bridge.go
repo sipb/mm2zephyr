@@ -175,10 +175,11 @@ func (b *Bridge) Run(ctx context.Context) error {
 func (b *Bridge) recordPost(class, instance string, post *model.Post) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.lastpost[lpkey{class, instance}] = post
+	b.lastpost[lpkey{strings.ToLower(class), strings.ToLower(instance)}] = post
 }
 
 func (b *Bridge) getRootID(class, instance string) (string, string) {
+	class = strings.ToLower(class)
 	instance = strings.ToLower(instance)
 	// TODO: Store this in a stateful way?
 	// TODO: Time limit on how old the last post can be?
