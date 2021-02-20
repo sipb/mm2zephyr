@@ -15,21 +15,27 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// Config represents the configuration for the Mattermost-Zephyr bridge.
 type Config struct {
 	Mattermost MattermostConfig `yaml:"mattermost"`
-	Mappings   []Mapping        `yaml:"mappings"`
+	// Mappings represents the list of Mattermost channel to Zephyr triplet pairings.
+	// If multiple mappings match a Zephyrgram, the first one will be used.
+	Mappings []Mapping `yaml:"mappings"`
 }
 
+// MattermostConfig represents the configuration for connecting to Mattermost.
 type MattermostConfig struct {
 	URL string `yaml:"url"`
 }
 
+// Mapping objects represent a single pairing of Mattermost channel and Zephyr triplet.
 type Mapping struct {
 	Channel  string `yaml:"channel"`
 	Class    string `yaml:"class"`
 	Instance string `yaml:"instance"`
 }
 
+// Bridge encapsulates all the long-term state of the bridge.
 type Bridge struct {
 	config   Config
 	token    string
@@ -41,6 +47,7 @@ type lpkey struct {
 	class, instance string
 }
 
+// New constructs a new Bridge object.
 func New(config Config, token string) *Bridge {
 	return &Bridge{
 		config:   config,
@@ -49,6 +56,7 @@ func New(config Config, token string) *Bridge {
 	}
 }
 
+// Run the bridge until ctx is canceled.
 func (b *Bridge) Run(ctx context.Context) error {
 	eg, ctx := errgroup.WithContext(ctx)
 
@@ -110,9 +118,9 @@ func (b *Bridge) Run(ctx context.Context) error {
 					username := message.Header.Sender
 					username = strings.TrimSuffix(username, "@ATHENA.MIT.EDU")
 					messageText := message.Body[1]
-					rootID, normalizedInstance := b.getRootID(message.Class, message.Instance)
+					rootID := b.getRootID(message.Class, message.Instance)
 
-					if rootID == "" && instance == "*" && normalizedInstance != "personal" {
+					if rootID == "" && instance == "*" && strings.ToLower(message.Instance) != "personal" {
 						messageText = fmt.Sprintf("[-i %s] %s", message.Instance, messageText)
 					}
 
@@ -172,13 +180,16 @@ func (b *Bridge) Run(ctx context.Context) error {
 	return eg.Wait()
 }
 
+// recordPost updates the most recent post for a given class, instance.
 func (b *Bridge) recordPost(class, instance string, post *model.Post) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.lastpost[lpkey{strings.ToLower(class), strings.ToLower(instance)}] = post
 }
 
-func (b *Bridge) getRootID(class, instance string) (string, string) {
+// getRootID returns the root ID that should be used for a message.
+// If there is no previous message, it returns an empty string.
+func (b *Bridge) getRootID(class, instance string) string {
 	class = strings.ToLower(class)
 	instance = strings.ToLower(instance)
 	// TODO: Store this in a stateful way?
@@ -187,16 +198,17 @@ func (b *Bridge) getRootID(class, instance string) (string, string) {
 	defer b.mu.Unlock()
 	post := b.lastpost[lpkey{class, instance}]
 	if post == nil {
-		return "", instance
+		return ""
 	}
 	if post.RootId != "" {
-		return post.RootId, instance
+		return post.RootId
 	}
-	return post.Id, instance
+	return post.Id
 }
 
 var instanceRE = regexp.MustCompile(`^\[\s*-i\s+([^]]+?)\s*\]\s*`)
 
+// findInstance extracts the instance that a given post should be sent on.
 func (b *Bridge) findInstance(bot *mm.Bot, post *model.Post) (string, error) {
 	if matches := instanceRE.FindStringSubmatch(post.Message); matches != nil {
 		return matches[1], nil
@@ -219,6 +231,7 @@ func (b *Bridge) findInstance(bot *mm.Bot, post *model.Post) (string, error) {
 	return "", nil
 }
 
+// logMessage logs a Zephyr message.
 func logMessage(message *z.Message) {
 	body := message.Body[0]
 	zsig := message.Header.Sender
@@ -229,6 +242,7 @@ func logMessage(message *z.Message) {
 	log.Printf("[-c %s -i %s] %s <%s>: %s", message.Class, message.Instance, zsig, message.Header.Sender, body)
 }
 
+// logPost logs a Mattermost post.
 func logPost(mapping Mapping, post mm.PostNotification) {
 	log.Printf("%s: <%s> %#v", mapping.Channel, post.Sender, post.Post)
 }
