@@ -109,6 +109,9 @@ func (b *Bridge) Run(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
+			if err := b.updateHeader(bot, mmChannel, mapping); err != nil {
+				return err
+			}
 			eg.Go(func() error {
 				for message := range zgramCh {
 					if message.Header.OpCode == "mattermost" {
@@ -165,7 +168,6 @@ func (b *Bridge) Run(ctx context.Context) error {
 					}
 					b.recordPost(mapping.Class, instance, post.Post)
 					sender := strings.TrimPrefix(post.Sender, "@")
-					// TODO: Set zsig to a pointer to the channel or post
 					zsig := bot.GetPostLink(post.Post)
 					if err := client.SendMessage(sender, mapping.Class, instance, []string{zsig, message}); err != nil {
 						log.Printf("sending message: %v", err)
@@ -178,6 +180,22 @@ func (b *Bridge) Run(ctx context.Context) error {
 		return nil
 	})
 	return eg.Wait()
+}
+
+func (b *Bridge) updateHeader(bot *mm.Bot, mmChannel *model.Channel, mapping Mapping) error {
+	// TODO: Update the header if it already has the wrong class?
+	// (Note that care needs to be taken if there are multiple mappings for a single channel.)
+	if !strings.HasPrefix(mmChannel.Header, "[-") {
+		header := fmt.Sprintf("[-c %s]", mapping.Class)
+		if mapping.Instance != "" {
+			header = fmt.Sprintf("[-c %s -i %s]", mapping.Class, mapping.Instance)
+		}
+		if mmChannel.Header != "" {
+			header += " " + mmChannel.Header
+		}
+		return bot.UpdateChannelHeader(mmChannel, header)
+	}
+	return nil
 }
 
 // recordPost updates the most recent post for a given class, instance.

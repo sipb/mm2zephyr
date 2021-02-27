@@ -111,7 +111,7 @@ func (bot *Bot) listen(ctx context.Context, token string) error {
 		return ctx.Err()
 	})
 	eg.Go(func() error {
-		for _ = range wsClient.PingTimeoutChannel {
+		for range wsClient.PingTimeoutChannel {
 			log.Print("mattermost ping timeout")
 			// Returning an error will close the connection and trigger a reconnect.
 			return errors.New("mattermost ping timeout")
@@ -212,6 +212,14 @@ func (bot *Bot) ListenChannel(channel_name string) (*model.Channel, <-chan PostN
 		ch:        postCh,
 	})
 	return ch, postCh, nil
+}
+
+func (bot *Bot) UpdateChannelHeader(channel *model.Channel, header string) error {
+	_, resp := bot.client.PatchChannel(channel.Id, &model.ChannelPatch{Header: model.NewString(header)})
+	if resp.Error != nil {
+		return resp.Error
+	}
+	return nil
 }
 
 func (bot *Bot) GetPostThread(postId string) (*model.PostList, error) {
