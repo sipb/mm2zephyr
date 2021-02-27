@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/sipb/mm2zephyr/mm"
@@ -86,6 +87,17 @@ func (b *Bridge) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+
+		// TODO: Remove this when zephyr-go learns how to reload its tickets.
+		expirationTime := client.TicketExpirationTime()
+		eg.Go(func() error {
+			select {
+			case <-time.After(time.Until(expirationTime) - 5*time.Minute):
+				return fmt.Errorf("ticket about to expire")
+			case <-ctx.Done():
+			}
+			return ctx.Err()
+		})
 
 		eg.Go(func() error {
 			<-ctx.Done()

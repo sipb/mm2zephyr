@@ -40,6 +40,10 @@ func NewClient() (*Client, error) {
 	return c, nil
 }
 
+func (c *Client) TicketExpirationTime() time.Time {
+	return c.session.Credential().EndTime()
+}
+
 func (c *Client) listen() {
 	for result := range c.session.Messages() {
 		// TODO: Do something with result.AuthStatus?

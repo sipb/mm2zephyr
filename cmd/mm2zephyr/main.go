@@ -51,8 +51,11 @@ func main() {
 	b := bridge.New(config, token)
 
 	for ctx.Err() == nil {
+		start := time.Now()
 		err := b.Run(ctx)
 		log.Printf("bridge failed: %v", err)
-		time.Sleep(time.Second)
+		if time.Since(start) < 5*time.Second {
+			time.Sleep(time.Second)
+		}
 	}
 }
