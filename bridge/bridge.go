@@ -92,7 +92,7 @@ func (b *Bridge) Run(ctx context.Context) error {
 		expirationTime := client.TicketExpirationTime()
 		eg.Go(func() error {
 			select {
-			case <-time.After(time.Until(expirationTime) - 5*time.Minute):
+			case <-time.After(time.Until(expirationTime) - time.Minute):
 				return fmt.Errorf("ticket about to expire")
 			case <-ctx.Done():
 			}
