@@ -165,6 +165,10 @@ func (b *Bridge) Run(ctx context.Context) error {
 						// Drop any message from a bot (including ourselves)
 						continue
 					}
+					if post.Post.IsJoinLeaveMessage() {
+						// Drop join/leave messages
+						continue
+					}
 					message := post.Post.Message
 					instance := mapping.Instance
 					if instance == "" {
