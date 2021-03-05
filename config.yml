@@ -78,6 +78,9 @@ mappings:
 - channel: technical
   class: sipb
   instance: technical
+- channel: town-square
+  class: sipb
+  instance: town-square
 #- channel: uplink
 - channel: when-office-open
   class: sipb
@@ -92,7 +95,7 @@ mappings:
   class: mattermost-test
 - channel: xvm
   class: xvm
-- channel: town-square
+- channel: sipb
   class: sipb
 - channel: unsipb
   class: unsipb
