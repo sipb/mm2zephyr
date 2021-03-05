@@ -48,7 +48,10 @@ func main() {
 		log.Fatalf("unable to parse config: %v", err)
 	}
 	token := os.Getenv("MM_AUTH_TOKEN")
-	b := bridge.New(config, token)
+	b, err := bridge.New(config, token)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	for ctx.Err() == nil {
 		start := time.Now()

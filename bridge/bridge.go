@@ -11,6 +11,7 @@ import (
 
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/sipb/mm2zephyr/mm"
+	"github.com/sipb/mm2zephyr/prettier"
 	"github.com/sipb/mm2zephyr/zephyr"
 	z "github.com/zephyr-im/zephyr-go"
 	"golang.org/x/sync/errgroup"
@@ -42,6 +43,8 @@ type Bridge struct {
 	token    string
 	mu       sync.Mutex
 	lastpost map[lpkey]*model.Post
+	pmu      sync.Mutex
+	prettier *prettier.Prettier
 }
 
 type lpkey struct {
@@ -49,12 +52,17 @@ type lpkey struct {
 }
 
 // New constructs a new Bridge object.
-func New(config Config, token string) *Bridge {
+func New(config Config, token string) (*Bridge, error) {
+	p, err := prettier.New()
+	if err != nil {
+		return nil, err
+	}
 	return &Bridge{
 		config:   config,
 		token:    token,
 		lastpost: make(map[lpkey]*model.Post),
-	}
+		prettier: p,
+	}, nil
 }
 
 // Run the bridge until ctx is canceled.
@@ -183,6 +191,11 @@ func (b *Bridge) Run(ctx context.Context) error {
 						instance = "personal"
 					}
 					b.recordPost(mapping.Class, instance, post.Post)
+					if fmt, err := b.formatMarkdown(message); err != nil {
+						log.Printf("failed to format a message: %v", err)
+					} else {
+						message = fmt
+					}
 					sender := strings.TrimPrefix(post.Sender, "@")
 					zsig := bot.GetPostLink(post.Post)
 					if err := client.SendMessage(sender, mapping.Class, instance, []string{zsig, message}); err != nil {
@@ -196,6 +209,15 @@ func (b *Bridge) Run(ctx context.Context) error {
 		return nil
 	})
 	return eg.Wait()
+}
+
+func (b *Bridge) formatMarkdown(in string) (string, error) {
+	b.pmu.Lock()
+	defer b.pmu.Unlock()
+	return b.prettier.Format(in, map[string]interface{}{
+		"proseWrap": "always",
+		"parser":    "markdown",
+	})
 }
 
 func (b *Bridge) updateHeader(bot *mm.Bot, mmChannel *model.Channel, mapping Mapping) error {
