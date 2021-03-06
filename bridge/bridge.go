@@ -19,7 +19,8 @@ import (
 
 // Config represents the configuration for the Mattermost-Zephyr bridge.
 type Config struct {
-	Mattermost MattermostConfig `yaml:"mattermost"`
+	Mattermost      MattermostConfig       `yaml:"mattermost"`
+	PrettierOptions map[string]interface{} `yaml:"prettier"`
 	// Mappings represents the list of Mattermost channel to Zephyr triplet pairings.
 	// If multiple mappings match a Zephyrgram, the first one will be used.
 	Mappings []Mapping `yaml:"mappings"`
@@ -53,7 +54,7 @@ type lpkey struct {
 
 // New constructs a new Bridge object.
 func New(config Config, token string) (*Bridge, error) {
-	p, err := prettier.New()
+	p, err := prettier.New(config.PrettierOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -214,10 +215,7 @@ func (b *Bridge) Run(ctx context.Context) error {
 func (b *Bridge) formatMarkdown(in string) (string, error) {
 	b.pmu.Lock()
 	defer b.pmu.Unlock()
-	return b.prettier.Format(in, map[string]interface{}{
-		"proseWrap": "always",
-		"parser":    "markdown",
-	})
+	return b.prettier.Format(in)
 }
 
 func (b *Bridge) updateHeader(bot *mm.Bot, mmChannel *model.Channel, mapping Mapping) error {

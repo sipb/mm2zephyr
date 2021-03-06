@@ -1,5 +1,8 @@
 mattermost:
   url: https://mattermost.mit.edu
+prettier:
+  proseWrap: always
+  parser: markdown
 # First matching mapping is used
 mappings:
 - channel: administrivia

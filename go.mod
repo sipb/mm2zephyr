@@ -11,4 +11,5 @@ require (
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 	gopkg.in/yaml.v2 v2.4.0
+	rogchap.com/v8go v0.5.1 // indirect
 )
