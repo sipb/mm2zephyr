@@ -92,6 +92,8 @@ mappings:
   class: sipb-auto
   instance: door
 # Classes without instances are listed last, so individual instances can be peeled off first.
+- channel: mirrors
+  class: mirrors
 - channel: scripts
   class: scripts
 - channel: test
