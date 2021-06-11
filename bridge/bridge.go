@@ -144,6 +144,13 @@ func (b *Bridge) Run(ctx context.Context) error {
 					messageText := message.Body[1]
 					rootID := b.getRootID(message.Class, message.Instance)
 
+					// TODO: The following two conditionals need to handle the case of multiple triplets mapped to a single Mattermost channel.
+
+					// Messages sent to the default instance do not need to be replies.
+					if strings.ToLower(message.Instance) == instance {
+						rootID = ""
+					}
+
 					if rootID == "" && instance == "*" && strings.ToLower(message.Instance) != "personal" {
 						messageText = fmt.Sprintf("[-i %s] %s", message.Instance, messageText)
 					}
