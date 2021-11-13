@@ -138,14 +138,12 @@ func (b *Bridge) Run(ctx context.Context) error {
 				return err
 			}
 			altChannels := map[string]*model.Channel{}
-			if mapping.Diversions != nil {
-				for user, channelName := range mapping.Diversions {
-					altChannel, err := bot.AttachChannel(channelName)
-					if err != nil {
-						return err
-					}
-					altChannels[user] = altChannel
+			for user, channelName := range mapping.Diversions {
+				altChannel, err := bot.AttachChannel(channelName)
+				if err != nil {
+					return err
 				}
+				altChannels[user] = altChannel
 			}
 			eg.Go(func() error {
 				for message := range zgramCh {
