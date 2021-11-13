@@ -188,20 +188,30 @@ func (bot *Bot) ListenPersonals() <-chan PostNotification {
 	return ch
 }
 
-func (bot *Bot) ListenChannel(channel_name string) (*model.Channel, <-chan PostNotification, error) {
+// Like ListenChannel, but doesn't listen; only prepares for transmission.
+func (bot *Bot) AttachChannel(channel_name string) (*model.Channel, error) {
 	// Make sure the bot has joined the channel
 	ch, resp := bot.client.GetChannelByName(channel_name, bot.team.Id, "")
 	if resp.Error != nil {
-		return nil, nil, resp.Error
+		return nil, resp.Error
 	}
 	log.Print(ch)
 	_, resp = bot.client.GetChannelMember(ch.Id, bot.user.Id, "")
 	if resp.StatusCode == 404 {
 		if _, resp := bot.client.AddChannelMember(ch.Id, bot.user.Id); resp.Error != nil {
-			return ch, nil, resp.Error
+			return ch, resp.Error
 		}
 	} else if resp.Error != nil {
-		return ch, nil, resp.Error
+		return ch, resp.Error
+	}
+	return ch, nil
+}
+
+func (bot *Bot) ListenChannel(channel_name string) (*model.Channel, <-chan PostNotification, error) {
+	// Make sure the bot has joined the channel
+	ch, err := bot.AttachChannel(channel_name)
+	if err != nil {
+		return ch, nil, err
 	}
 	// Subscribe to posts
 	postCh := make(chan PostNotification)

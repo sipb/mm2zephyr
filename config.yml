@@ -96,6 +96,8 @@ mappings:
   class: mirrors
 - channel: scripts
   class: scripts
+  diversions:
+    nagios: scripts-spew
 - channel: test
   class: mattermost-test
 - channel: xvm

@@ -36,6 +36,10 @@ type Mapping struct {
 	Channel  string `yaml:"channel"`
 	Class    string `yaml:"class"`
 	Instance string `yaml:"instance"`
+	// The diversion map maps Zephyr usernames to alternative Mattermost channels.
+	// This is useful, for example, to redirect high-spew automated messages to
+	// another channel so that the main channel is usable.
+	Diversions map[string]string `yaml:"diversions"`
 }
 
 // Bridge encapsulates all the long-term state of the bridge.
@@ -133,6 +137,16 @@ func (b *Bridge) Run(ctx context.Context) error {
 			if err := b.updateHeader(bot, mmChannel, mapping); err != nil {
 				return err
 			}
+			altChannels := map[string]*model.Channel{}
+			if mapping.Diversions != nil {
+				for user, channelName := range mapping.Diversions {
+					altChannel, err := bot.AttachChannel(channelName)
+					if err != nil {
+						return err
+					}
+					altChannels[user] = altChannel
+				}
+			}
 			eg.Go(func() error {
 				for message := range zgramCh {
 					if message.Header.OpCode == "mattermost" {
@@ -155,8 +169,13 @@ func (b *Bridge) Run(ctx context.Context) error {
 						messageText = fmt.Sprintf("[-i %s] %s", message.Instance, messageText)
 					}
 
+					sendChannelId := mmChannel.Id
+					if altChannel, found := altChannels[username]; found {
+						sendChannelId = altChannel.Id
+					}
+
 					post, err := bot.SendPost(&model.Post{
-						ChannelId: mmChannel.Id,
+						ChannelId: sendChannelId,
 						Message:   messageText,
 						Props: model.StringInterface{
 							"override_username": username,
