@@ -2,6 +2,7 @@ package zephyr
 
 import (
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -53,10 +54,11 @@ func (c *Client) listen() {
 }
 
 func (c *Client) handleMessage(msg *zephyr.Message) {
+	class, instance := strings.ToLower(msg.Class), strings.ToLower(msg.Instance)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, l := range c.listeners {
-		if l.class == msg.Class && (l.instance == "*" || l.instance == msg.Instance) {
+		if l.class == class && (l.instance == "*" || l.instance == instance) {
 			l.ch <- msg
 			return
 		}
@@ -64,6 +66,9 @@ func (c *Client) handleMessage(msg *zephyr.Message) {
 	log.Printf("unhandled message: %v", msg)
 }
 
+// SubscribeAndListen starts listening to a zephyr class and instance tuple.
+// To listen for all instances on a class, pass "*" as the instance.
+// Zephyr classes and instances are case-insensitive and messages of any case may be returned.
 func (c *Client) SubscribeAndListen(class, instance string) (<-chan *zephyr.Message, error) {
 	if ack, err := c.session.SendSubscribeNoDefaults(c.kCtx, []zephyr.Subscription{{Class: class, Instance: instance}}); err != nil {
 		return nil, err
@@ -74,8 +79,8 @@ func (c *Client) SubscribeAndListen(class, instance string) (<-chan *zephyr.Mess
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.listeners = append(c.listeners, listener{
-		class:    class,
-		instance: instance,
+		class:    strings.ToLower(class),
+		instance: strings.ToLower(instance),
 		ch:       ch,
 	})
 	return ch, nil
