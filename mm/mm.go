@@ -61,7 +61,7 @@ func New(url, token string) (*Bot, error) {
 		}
 	}
 	if team == nil {
-		return nil, fmt.Errorf("no team named 'SIPB' found, got %d teams: %v", len(teams), teamList)
+		return nil, fmt.Errorf("no team named 'SIPB' found, got %d team(s): %v", len(teams), teamList)
 	}
 
 	b := &Bot{
