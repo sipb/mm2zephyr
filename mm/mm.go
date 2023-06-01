@@ -51,7 +51,7 @@ func New(url, token string) (*Bot, error) {
 	}
 
 	// Handle multiple Teams by finding the one called "SIPB"
-	var team *Team
+	var team *model.Team
 	var teamList []string
 	for _, t := range teams {
 		teamList = append(teamList, team.Name)
