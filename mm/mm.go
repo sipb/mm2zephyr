@@ -55,7 +55,7 @@ func New(url, token string) (*Bot, error) {
 	var teamList []string
 	for _, t := range teams {
 		teamList = append(teamList, team.Name)
-		if t.Name == "SIPB" {
+		if t.Name == "sipb" {
 			team = t
 			break
 		}
