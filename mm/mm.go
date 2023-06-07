@@ -51,20 +51,8 @@ func New(url, token string) (*Bot, error) {
 	}
 
 	// Handle multiple Teams by finding the one called "SIPB"
-	const teamName = "sipb"
-
 	var team *model.Team
-	var teamList []string
-	for _, t := range teams {
-		teamList = append(teamList, team.Name)
-		if t.Name == teamName {
-			team = t
-			break
-		}
-	}
-	if team == nil {
-		return nil, fmt.Errorf("no team named '%s' found, got %d team(s): %v", teamName, len(teams), teamList)
-	}
+	team, resp = client.GetTeamByName("sipb", "")
 
 	b := &Bot{
 		client:   client,
