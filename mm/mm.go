@@ -49,14 +49,15 @@ func New(url, token string) (*Bot, error) {
 	if resp.Error != nil {
 		return nil, resp.Error
 	}
-	if len(teams) != 1 {
-		return nil, fmt.Errorf("got %d teams, expected 1", len(teams))
-	}
+
+	// Handle multiple Teams by finding the one called "SIPB"
+	var team *model.Team
+	team, resp = client.GetTeamByName("sipb", "")
 
 	b := &Bot{
 		client:   client,
 		user:     user,
-		team:     teams[0],
+		team:     team,
 		channels: make(map[string]*model.Channel),
 	}
 
