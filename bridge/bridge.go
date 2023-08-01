@@ -147,7 +147,10 @@ func (b *Bridge) Run(ctx context.Context) error {
 			}
 			eg.Go(func() error {
 				for message := range zgramCh {
-					if message.Header.OpCode == "mattermost" {
+					// Messages with opcode "matrix" come from the Matrix->Zephyr pathway,
+					// and we don't want to double-bridge them, since they are already bridged
+					// by the Matrix->Mattermost pathway
+					if message.Header.OpCode == "mattermost" || message.Header.OpCode == "matrix" {
 						continue
 					}
 					logMessage(message)
